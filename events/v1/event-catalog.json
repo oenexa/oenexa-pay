@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "domain": "com.oenexa.pay",
+  "version": "1.0.0",
+  "events": [
+    {
+      "type": "com.oenexa.pay.intent.created.v1",
+      "description": "Emitted when a new payment intent is initialized",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "intentId": { "type": "string" },
+              "merchantId": { "type": "string" },
+              "amount": { "type": "string" },
+              "rail": { "type": "string" }
+            },
+            "required": ["intentId", "amount", "rail"]
+          }
+        }
+      }
+    },
+    {
+      "type": "com.oenexa.pay.settlement.completed.v1",
+      "description": "Emitted when a payment settles across its respective rail",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "type": "string" },
+          "data": {
+            "type": "object",
+            "properties": {
+              "intentId": { "type": "string" },
+              "rail": { "type": "string" },
+              "settledAt": { "type": "string" }
+            },
+            "required": ["intentId", "rail"]
+          }
+        }
+      }
+    }
+  ]
+}

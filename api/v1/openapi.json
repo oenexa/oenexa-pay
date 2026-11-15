@@ -1,0 +1,84 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "OENEXA Tri-Rail Payment Gateway API",
+    "version": "1.0.0",
+    "description": "Orchestrates Crypto, Card/Stripe, and Bank/SEPA-SWIFT payments."
+  },
+  "servers": [
+    {
+      "url": "https://app.oenexa.com/api/pay",
+      "description": "Payment Gateway API Route"
+    }
+  ],
+  "paths": {
+    "/v1/intents": {
+      "post": {
+        "summary": "Create Payment Intent",
+        "operationId": "createIntent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentIntentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Payment Intent Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentIntentResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/intents/{intentId}/settle": {
+      "post": {
+        "summary": "Settle Payment Intent",
+        "operationId": "settleIntent",
+        "parameters": [
+          { "name": "intentId", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment Settled"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "PaymentIntentRequest": {
+        "type": "object",
+        "properties": {
+          "merchantId": { "type": "string" },
+          "amount": { "type": "string" },
+          "currency": { "type": "string" },
+          "rail": { "type": "string", "enum": ["ONXC_NATIVE", "CARD_STRIPE", "BANK_SWIFT_SEPA"] },
+          "idempotencyKey": { "type": "string" }
+        },
+        "required": ["merchantId", "amount", "currency", "rail", "idempotencyKey"]
+      },
+      "PaymentIntentResponse": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "status": { "type": "string", "enum": ["PENDING", "PROCESSING", "SETTLED", "FAILED"] },
+          "amount": { "type": "string" },
+          "currency": { "type": "string" },
+          "rail": { "type": "string" }
+        },
+        "required": ["id", "status", "amount", "currency", "rail"]
+      }
+    }
+  }
+}
