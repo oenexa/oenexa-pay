@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { PaymentService } from '../service/PaymentService.js';
-import { EventTypes } from '@oenexa/event-schemas';
+import { EventTypes } from '../domain/events.js';
 
 describe('OENEXA Pay Service & Tri-Rail Settlement', () => {
   it('creates payment intent and enforces strict idempotency', () => {

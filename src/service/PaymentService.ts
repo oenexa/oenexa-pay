@@ -4,7 +4,7 @@ import {
   EventTypes,
   type CloudEvent,
   type PaymentSettledPayload,
-} from '@oenexa/event-schemas';
+} from '../domain/events.js';
 import type {
   PaymentIntent,
   PaymentRail,

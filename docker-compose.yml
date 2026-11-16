@@ -1,0 +1,23 @@
+# ==============================================================================
+# OENEXA Payment Gateway & Rails Service — Standalone Stack
+# ==============================================================================
+
+version: "3.8"
+
+services:
+  oenexa-pay:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oenexa-pay-standalone
+    ports:
+      - "8086:8086"
+    environment:
+      PORT: "8086"
+      NODE_ENV: production
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:8086/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
