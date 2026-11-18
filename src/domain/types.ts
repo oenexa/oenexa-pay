@@ -1,6 +1,6 @@
 export type PaymentRail = 'ONXC_NATIVE' | 'SEPA_INSTANT' | 'CARD';
 
-export type PaymentStatus = 'PENDING' | 'AUTHORIZED' | 'SETTLED' | 'FAILED';
+export type PaymentStatus = 'PENDING' | 'AUTHORIZED' | 'SETTLED' | 'REFUNDED' | 'PARTIALLY_REFUNDED' | 'FAILED';
 
 export interface PaymentIntent {
   id: string;
@@ -13,6 +13,8 @@ export interface PaymentIntent {
   metadata?: Record<string, string>;
   createdAt: string;
   settledAt?: string;
+  refundedAmount?: string;
+  refundedAt?: string;
 }
 
 export interface Merchant {
@@ -34,4 +36,16 @@ export interface SettlementRecord {
   currency: string;
   txReference: string;
   settledAt: string;
+}
+
+export interface RefundRecord {
+  id: string;
+  intentId: string;
+  merchantId: string;
+  amount: string;
+  currency: string;
+  reason: string;
+  rail: PaymentRail;
+  txReference: string;
+  refundedAt: string;
 }

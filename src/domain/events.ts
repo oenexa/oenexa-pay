@@ -17,6 +17,7 @@ export interface CloudEvent<T = Record<string, unknown>> {
 export const EventTypes = {
   PAYMENT_INTENT_CREATED: 'com.oenexa.pay.intent.created.v1',
   PAYMENT_SETTLED: 'com.oenexa.pay.settled.v1',
+  PAYMENT_REFUNDED: 'com.oenexa.pay.refunded.v1',
   PAYMENT_FAILED: 'com.oenexa.pay.failed.v1',
 } as const;
 
@@ -27,6 +28,17 @@ export interface PaymentSettledPayload {
   currency: string;
   settledAt: string;
   rail: 'ONXC_NATIVE' | 'SEPA_INSTANT' | 'CARD';
+}
+
+export interface PaymentRefundedPayload {
+  refundId: string;
+  paymentId: string;
+  merchantId: string;
+  amount: string;
+  currency: string;
+  reason: string;
+  rail: 'ONXC_NATIVE' | 'SEPA_INSTANT' | 'CARD';
+  refundedAt: string;
 }
 
 export function createCloudEvent<T>(params: {

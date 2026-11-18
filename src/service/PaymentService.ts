@@ -4,18 +4,22 @@ import {
   EventTypes,
   type CloudEvent,
   type PaymentSettledPayload,
+  type PaymentRefundedPayload,
 } from '../domain/events.js';
 import type {
   PaymentIntent,
   PaymentRail,
-  PaymentStatus,
+  RefundRecord,
   SettlementRecord,
 } from '../domain/types.js';
 
 export class PaymentService {
   private intents = new Map<string, PaymentIntent>();
   private idempotencyIndex = new Map<string, string>(); // idempotencyKey -> intentId
-  private settlements = new Map<string, SettlementRecord>();
+  private settlements = new Map<string, SettlementRecord>(); // settlementId -> SettlementRecord
+  private settlementsByIntent = new Map<string, SettlementRecord>(); // intentId -> SettlementRecord
+  private refunds = new Map<string, RefundRecord>(); // refundId -> RefundRecord
+  private refundsByIntent = new Map<string, RefundRecord[]>(); // intentId -> RefundRecord[]
   private outbox: CloudEvent<any>[] = [];
 
   /**
@@ -29,6 +33,11 @@ export class PaymentService {
     idempotencyKey: string;
     metadata?: Record<string, string>;
   }): { intent: PaymentIntent; event: CloudEvent<any> } {
+    const parsedAmount = parseFloat(params.amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      throw new Error('Payment intent amount must be a positive number.');
+    }
+
     // Check idempotency cache
     const existingId = this.idempotencyIndex.get(params.idempotencyKey);
     if (existingId) {
@@ -45,7 +54,7 @@ export class PaymentService {
     const intent: PaymentIntent = {
       id: intentId,
       merchantId: params.merchantId,
-      amount: params.amount,
+      amount: parsedAmount.toFixed(4),
       currency: params.currency.toUpperCase(),
       rail: params.rail,
       status: 'PENDING',
@@ -87,6 +96,10 @@ export class PaymentService {
       throw new Error(`Payment intent '${intentId}' is already settled.`);
     }
 
+    if (intent.status === 'REFUNDED') {
+      throw new Error(`Payment intent '${intentId}' cannot be settled because it has been refunded.`);
+    }
+
     intent.status = 'SETTLED';
     intent.settledAt = new Date().toISOString();
 
@@ -114,6 +127,7 @@ export class PaymentService {
     };
 
     this.settlements.set(settlement.id, settlement);
+    this.settlementsByIntent.set(intent.id, settlement);
 
     const payload: PaymentSettledPayload = {
       paymentId: intent.id,
@@ -133,6 +147,100 @@ export class PaymentService {
 
     this.outbox.push(event);
     return { settlement, event };
+  }
+
+  /**
+   * Processes a full or partial refund for a settled payment intent
+   */
+  public refundPayment(params: {
+    intentId: string;
+    amount?: string;
+    reason: string;
+  }): { refund: RefundRecord; event: CloudEvent<any> } {
+    const intent = this.intents.get(params.intentId);
+    if (!intent) {
+      throw new Error(`Payment intent '${params.intentId}' not found.`);
+    }
+
+    if (intent.status === 'REFUNDED') {
+      throw new Error(`Requested refund exceeds remaining balance of 0.0000 ${intent.currency} (already fully refunded).`);
+    }
+
+    if (intent.status !== 'SETTLED' && intent.status !== 'PARTIALLY_REFUNDED') {
+      throw new Error(`Payment intent '${params.intentId}' must be settled before refunding. Current status: ${intent.status}`);
+    }
+
+    const currentRefunded = parseFloat(intent.refundedAmount || '0.0000');
+    const totalGross = parseFloat(intent.amount);
+    const refundAmt = params.amount ? parseFloat(params.amount) : totalGross - currentRefunded;
+
+    if (isNaN(refundAmt) || refundAmt <= 0) {
+      throw new Error('Refund amount must be a positive number.');
+    }
+
+    if (currentRefunded + refundAmt > totalGross + 0.0001) {
+      throw new Error(`Requested refund of ${refundAmt.toFixed(4)} exceeds remaining balance of ${(totalGross - currentRefunded).toFixed(4)} ${intent.currency}`);
+    }
+
+    const newRefundedTotal = currentRefunded + refundAmt;
+    intent.refundedAmount = newRefundedTotal.toFixed(4);
+    intent.refundedAt = new Date().toISOString();
+    intent.status = Math.abs(newRefundedTotal - totalGross) < 0.0001 ? 'REFUNDED' : 'PARTIALLY_REFUNDED';
+
+    const txRef =
+      intent.rail === 'ONXC_NATIVE'
+        ? `0x${crypto.randomBytes(32).toString('hex')}`
+        : `REFUND-SEPA-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
+
+    const refund: RefundRecord = {
+      id: `ref_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`,
+      intentId: intent.id,
+      merchantId: intent.merchantId,
+      amount: refundAmt.toFixed(4),
+      currency: intent.currency,
+      reason: params.reason || 'Customer requested return',
+      rail: intent.rail,
+      txReference: txRef,
+      refundedAt: intent.refundedAt,
+    };
+
+    this.refunds.set(refund.id, refund);
+    const existingList = this.refundsByIntent.get(intent.id) || [];
+    existingList.push(refund);
+    this.refundsByIntent.set(intent.id, existingList);
+
+    const payload: PaymentRefundedPayload = {
+      refundId: refund.id,
+      paymentId: intent.id,
+      merchantId: intent.merchantId,
+      amount: refund.amount,
+      currency: refund.currency,
+      reason: refund.reason,
+      rail: refund.rail,
+      refundedAt: refund.refundedAt,
+    };
+
+    const event = createCloudEvent({
+      type: EventTypes.PAYMENT_REFUNDED,
+      source: 'https://api.oenexa.com/v1/pay',
+      data: payload,
+      subject: intent.id,
+    });
+
+    this.outbox.push(event);
+    return { refund, event };
+  }
+
+  public getIntent(intentId: string): PaymentIntent | undefined {
+    return this.intents.get(intentId);
+  }
+
+  public getSettlementByIntent(intentId: string): SettlementRecord | undefined {
+    return this.settlementsByIntent.get(intentId);
+  }
+
+  public getRefundsByIntent(intentId: string): RefundRecord[] {
+    return [...(this.refundsByIntent.get(intentId) || [])];
   }
 
   public getOutbox(): CloudEvent<any>[] {
