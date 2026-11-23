@@ -1,11 +1,14 @@
 import http from 'node:http';
 import { PaymentService } from './service/PaymentService.js';
+import { MerchantSettlementLedgerBridge } from './service/MerchantSettlementLedgerBridge.js';
 
 export * from './domain/types.js';
 export * from './domain/events.js';
 export * from './service/PaymentService.js';
+export * from './service/MerchantSettlementLedgerBridge.js';
 
 export const pay = new PaymentService();
+export const settlementBridge = new MerchantSettlementLedgerBridge();
 const PORT = Number(process.env.PORT) || 8086;
 
 function parseJsonBody(req: http.IncomingMessage): Promise<any> {
