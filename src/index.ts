@@ -7,6 +7,7 @@ export * from './domain/events.js';
 export * from './service/PaymentService.js';
 export * from './service/MerchantSettlementLedgerBridge.js';
 export * from './service/Iso20022MessageService.js';
+export * from './registry/FiatCurrencyRegistry.js';
 
 export const pay = new PaymentService();
 export const settlementBridge = new MerchantSettlementLedgerBridge();
