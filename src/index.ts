@@ -52,6 +52,12 @@ export const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ success: true, data: pay.getOutbox() }));
     }
 
+    if ((url === '/api/pay/config/currencies' || url === '/api/v1/pay/config/currencies') && method === 'GET') {
+      const currencies = FiatCurrencyRegistry.getInstance();
+      res.writeHead(200);
+      return res.end(JSON.stringify({ success: true, data: currencies.getAll(), total: currencies.getTotalCount() }));
+    }
+
     if (url.startsWith('/api/pay/intent/') && method === 'GET') {
       const intentId = url.replace('/api/pay/intent/', '').trim();
       const intent = pay.getIntent(intentId);
